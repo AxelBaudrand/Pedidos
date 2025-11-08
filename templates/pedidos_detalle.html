@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <title>Restaurante - Pedido {{ pedido.codigo }}</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="container mt-3">
+    <h2>Detalle Pedido {{ pedido.codigo }} (Mesa {{ mesa.numero }})</h2>
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+    <!-- Lista de platos en el pedido -->
+    {% if pedido.platos.all %}
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Plato</th>
+            <th>Cant.</th>
+            <th>Observaciones</th>
+            <th>Precio unitario</th>
+            <th>Subtotal</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in pedido.platos.all %}
+          <tr>
+            <td>{{ item.plato.nombre }}</td>
+            <td>{{ item.cantidad }}</td>
+            <td>{{ item.observaciones }}</td>
+            <td>${{ item.plato.precio }}</td>
+            <td>${{ item.plato.precio * item.cantidad }}</td>
+            <td>
+              <!-- Enlace para eliminar plato del pedido -->
+              <a href="{% url 'eliminar_plato' pedido.id item.id %}" class="text-danger"
+                 onclick="return confirm('¿Quitar este plato del pedido?');">Eliminar</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <h5>Total: ${{ pedido.total }}</h5>
+    {% else %}
+      <p>El pedido no tiene platos aún. Agrega platos abajo.</p>
+    {% endif %}
+    <!-- Formulario para agregar un nuevo plato al pedido -->
+    <form method="post" class="mt-4 border p-3">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="plato" class="form-label">Plato:</label>
+        <select name="plato" id="plato" class="form-select" required>
+          <option value="">-- Seleccione un plato --</option>
+          {% for plato in platos_menu %}
+            <option value="{{ plato.id }}">{{ plato.nombre }} - ${{ plato.precio }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="cantidad" class="form-label">Cantidad:</label>
+        <input type="number" name="cantidad" id="cantidad" class="form-control" value="1" min="1" max="20" required>
+      </div>
+      <div class="mb-3">
+        <label for="observaciones" class="form-label">Observaciones:</label>
+        <input type="text" name="observaciones" id="observaciones" class="form-control" placeholder="Ej: sin cebolla, poco picante">
+      </div>
+      <button type="submit" class="btn btn-success">Agregar Plato</button>
+      <!-- Botones para enviar o guardar -->
+      <a href="{% url 'enviar_pedido' pedido.id %}" class="btn btn-primary"
+         onclick="return confirm('¿Confirmar y enviar pedido a cocina?');">Enviar a cocina</a>
+      <a href="{% url 'cancelar_pedido' pedido.id %}" class="btn btn-danger"
+         onclick="return confirm('¿Cancelar este pedido?');">Cancelar pedido</a>
+    </form>
+</body>
+</html>
