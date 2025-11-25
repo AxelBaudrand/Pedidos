@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <title>Detalle del Pedido</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-overlay.show {
+            display: flex;
+        }
+        .loading-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .badge-m1 {
+            font-size: 0.7rem;
+            margin-left: 5px;
+        }
+        .api-status-box {
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            background: #e7f5ff;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body class="container mt-3">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Contenedor de mensajes dinámicos -->
+    <div id="mensaje-container"></div>
+
+    <div class="alert alert-info" role="alert">
+        <h4>👁️ Detalle del Pedido #{{ pedido.id }}</h4>
+    </div>
+
+    <!-- ✅ NUEVA SECCIÓN: Estado de la API -->
+    <div class="api-status-box">
+        <h6 class="mb-3"><strong>📡 Estado de Integración con M1 (Menú):</strong></h6>
+        <div class="row">
+            <div class="col-md-4">
+                <small class="text-muted">Stock Validado:</small><br>
+                {% if pedido.stock_validado %}
+                    <span class="badge bg-success">✅ Validado</span>
+                {% else %}
+                    <span class="badge bg-warning">⏳ Pendiente</span>
+                {% endif %}
+            </div>
+            <div class="col-md-4">
+                <small class="text-muted">Stock Consumido:</small><br>
+                {% if pedido.stock_consumido %}
+                    <span class="badge bg-success">✅ Consumido</span>
+                {% else %}
+                    <span class="badge bg-secondary">❌ No Consumido</span>
+                {% endif %}
+            </div>
+            <div class="col-md-4">
+                <small class="text-muted">ID Reserva M1:</small><br>
+                <code>{{ pedido.reserva_stock_id|default:"N/A" }}</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Información Completa del Pedido</h5>
+        </div>
+        <div class="card-body">
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6><strong>🆔 ID del Pedido:</strong></h6>
+                    <p class="text-muted">#{{ pedido.id }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><strong>📊 Estado:</strong></h6>
+                    <span class="badge fs-6
+                        {% if pedido.estado == 'pendiente' %}bg-warning
+                        {% elif pedido.estado == 'validando_stock' %}bg-info
+                        {% elif pedido.estado == 'en_elaboracion' %}bg-secondary
+                        {% elif pedido.estado == 'enviado_cocina' %}bg-info
+                        {% elif pedido.estado == 'listo' %}bg-success
+                        {% elif pedido.estado == 'entregado' %}bg-primary
+                        {% elif pedido.estado == 'cancelado' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ pedido.get_estado_display }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6><strong>👤 Nombre del Cliente:</strong></h6>
+                    <p class="text-muted">{{ pedido.nombre }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><strong>🪑 Número de mesa:</strong></h6>
+                    <p class="text-muted">{{ pedido.mesa.numero }}</p>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <h6><strong>📄 Notas para Cocina:</strong></h6>
+                <p class="text-muted border rounded p-3 bg-light">
+                    {{ pedido.notas_cocina|default:"(Sin notas especiales)" }}
+                </p>
+            </div>
+            
+            <hr>
+
+            <div class="mb-4">
+                <h6><strong>🍽️ Platos Solicitados:</strong></h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Plato</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">Precio Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>
+                                {{ detalle.plato.nombre }}
+                                {% if detalle.plato.plato_id_m1 %}
+                                    <span class="badge bg-success badge-m1">M1: {{ detalle.plato.plato_id_m1 }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning badge-m1">Sin ID M1</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ detalle.cantidad }}</td>
+                            <td class="text-end">${{ detalle.plato.precio|floatformat:2 }}</td>
+                            <td class="text-end">${{ detalle.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                            <tr><td colspan="4" class="text-danger">Este pedido no tiene platos.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>TOTAL NETO:</strong></td>
+                            <td class="text-end"><strong>${{ pedido.calcular_total_neto|floatformat:2 }}</strong></td>
+                        </tr>
+                        {% if pedido.descuento_porcentaje > 0 %}
+                        <tr class="table-warning">
+                            <td colspan="3" class="text-end">
+                                <strong>DESCUENTO ({{ pedido.descuento_porcentaje|floatformat:2 }}%):</strong>
+                            </td>
+                            <td class="text-end">
+                                <strong>-${{ pedido.calcular_descuento_monto|floatformat:2 }}</strong>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        <tr class="table-success">
+                            <td colspan="3" class="text-end">
+                                <h5><strong>TOTAL FINAL:</strong></h5>
+                            </td>
+                            <td class="text-end">
+                                <h5><strong>${{ pedido.calcular_total_final|floatformat:2 }}</strong></h5>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <hr>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6><strong>👨‍🍳 Mesero Asignado:</strong></h6>
+                    <p class="text-muted">{{ pedido.mesero.username }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><strong>🕐 Fecha de Creación:</strong></h6>
+                    <p class="text-muted">{{ pedido.fecha_creacion|date:"d/m/Y H:i:s" }}</p>
+                </div>
+            </div>
+
+            {% if pedido.timestamp_envio_cocina %}
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6><strong>🔥 Enviado a Cocina:</strong></h6>
+                    <p class="text-muted">{{ pedido.timestamp_envio_cocina|date:"d/m/Y H:i:s" }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if pedido.timestamp_entrega %}
+            <div class="row mb-3 alert alert-secondary">
+                <div class="col-md-6">
+                    <h6><strong>✅ Fecha de Entrega:</strong></h6>
+                    <p class="text-muted">{{ pedido.timestamp_entrega|date:"d/m/Y H:i:s" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><strong>⏱️ Tiempo Total (Creación a Entrega):</strong></h6>
+                    <p class="text-muted">{{ pedido.calcular_tiempo_total }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="card-footer bg-light">
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+
+                <!-- ✅ BOTÓN: Validar Stock (solo si está pendiente y no validado) -->
+                {% if pedido.estado == 'pendiente' and not pedido.stock_validado %}
+                    <button type="button" class="btn btn-info" onclick="validarStock()">
+                        ✓ Validar Stock en M1
+                    </button>
+                {% endif %}
+
+                <!-- ✅ BOTÓN: Enviar a Cocina (solo si stock validado y no consumido) -->
+                {% if pedido.stock_validado and not pedido.stock_consumido %}
+                    <button type="button" class="btn btn-success" onclick="enviarACocina()">
+                        🔥 Enviar a Cocina
+                    </button>
+                {% endif %}
+
+                <!-- Botón original de enviar a cocina (para estados sin API) -->
+                {% if pedido.estado == 'en_elaboracion' and pedido.stock_consumido %}
+                    <a href="{% url 'enviar_a_cocina' pedido.id %}" class="btn btn-success">
+                        🔪 Continuar en Cocina
+                    </a>
+                {% endif %}
+                
+                {% if pedido.estado == 'listo' %}
+                    <form method="POST" action="{% url 'marcar_entregado' pedido.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning">
+                            ✅ Marcar Entregado
+                        </button>
+                    </form>
+                {% endif %}
+
+                {% if pedido.estado == 'entregado' %}
+                    <a href="{% url 'resumen_cuenta' pedido.mesa.id %}" class="btn btn-info">
+                        💰 Ver Cuenta
+                    </a>
+                {% endif %}
+
+                <!-- ✅ BOTÓN: Cancelar Pedido (solo si no está entregado o cancelado) -->
+                {% if pedido.estado != 'entregado' and pedido.estado != 'cancelado' %}
+                    <button type="button" class="btn btn-danger" onclick="cancelarPedido()">
+                        ❌ Cancelar Pedido
+                    </button>
+                {% endif %}
+                
+                <a href="{% url 'home' %}" class="btn btn-secondary">⬅️ Volver</a>
+                
+                {% if pedido.estado != 'entregado' and pedido.estado != 'cancelado' %}
+                    <a href="{% url 'editar_pedido' pedido.id %}" class="btn btn-primary">✏️ Editar</a>
+                {% endif %}
+                
+                {% if pedido.estado == 'pendiente' or pedido.estado == 'cancelado' %}
+                    <a href="{% url 'eliminar_pedido' pedido.id %}" class="btn btn-outline-danger">🗑️ Eliminar</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3 mb-0">⏳ Procesando con M1...</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- ✅ SCRIPTS PARA LA INTEGRACIÓN API -->
+    <script>
+        const pedidoId = {{ pedido.id }};
+
+        // Función para mostrar mensajes
+        function mostrarMensaje(mensaje, tipo) {
+            const container = document.getElementById('mensaje-container');
+            const alertClass = tipo === 'success' ? 'alert-success' : 
+                              tipo === 'error' ? 'alert-danger' : 
+                              'alert-warning';
+            
+            container.innerHTML = `
+                <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                    ${mensaje}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Scroll al mensaje
+            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Auto-cerrar después de 5 segundos
+            setTimeout(() => {
+                const alert = container.querySelector('.alert');
+                if (alert) {
+                    const bsAlert = bootstrap.Alert.getInstance(alert);
+                    if (bsAlert) bsAlert.close();
+                }
+            }, 5000);
+        }
+
+        // Función para mostrar/ocultar loading
+        function mostrarLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+        }
+
+        // ✅ FUNCIÓN: Validar Stock
+        async function validarStock() {
+            if (!confirm('¿Desea validar el stock de este pedido con el sistema de Menú (M1)?')) {
+                return;
+            }
+
+            mostrarLoading(true);
+            
+            try {
+                const response = await fetch(`/pedido/${pedidoId}/validar-stock/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    mostrarMensaje('✅ ' + data.message, 'success');
+                    // Recargar página después de 2 segundos
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    mostrarMensaje('❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('❌ Error de conexión: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        // ✅ FUNCIÓN: Enviar a Cocina
+        async function enviarACocina() {
+            if (!confirm('¿Confirmar envío a cocina? Esta acción consumirá el stock en el sistema de Menú (M1).')) {
+                return;
+            }
+
+            mostrarLoading(true);
+            
+            try {
+                const response = await fetch(`/pedido/${pedidoId}/enviar-cocina/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    mostrarMensaje('✅ ' + data.message, 'success');
+                    // Recargar página después de 2 segundos
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    mostrarMensaje('❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('❌ Error de conexión: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        // ✅ FUNCIÓN: Cancelar Pedido
+        async function cancelarPedido() {
+            if (!confirm('¿Está seguro de cancelar este pedido? Si el stock fue validado, se liberará la reserva en M1.')) {
+                return;
+            }
+
+            mostrarLoading(true);
+            
+            try {
+                const response = await fetch(`/pedido/${pedidoId}/cancelar/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    mostrarMensaje('✅ ' + data.message, 'success');
+                    // Redirigir al home después de 2 segundos
+                    setTimeout(() => {
+                        window.location.href = '{% url "home" %}';
+                    }, 2000);
+                } else {
+                    mostrarMensaje('❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('❌ Error de conexión: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        // Función auxiliar para obtener CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

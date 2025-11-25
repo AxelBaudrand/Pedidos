@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Pedido #{{ pedido.id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        .form-control:focus, .form-select:focus, .form-control-highlight {
+            border-color: #007bff; /* Color azul primario de Bootstrap */
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25); /* Resaltar con sombra */
+        }
+    </style>
+</head>
+<body class="container mt-4">
+
+    <h2 class="mb-4 text-primary">✏️ Editar Pedido #{{ pedido.id }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow p-4 border-primary">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="form-group mb-3">
+                <label for="nombre" class="fw-bold">👤 Nombre del Cliente</label>
+                <input type="text" name="nombre" id="nombre" class="form-control form-control-highlight" value="{{ pedido.nombre }}" required>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="mesa" class="fw-bold">🪑 Seleccionar Mesa</label>
+                <select name="mesa" id="mesa" class="form-select form-control-highlight" required>
+                    {% for m in Mesas %}
+                        <option value="{{ m.id }}" {% if m.id == pedido.mesa.id %}selected{% endif %}>
+                            Mesa {{ m.numero }} ({% if m.ocupada %} Ocupada {% else %} Libre {% endif %})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="notas_cocina" class="fw-bold">📄 Notas para Cocina</label>
+                <textarea name="notas_cocina" id="notas_cocina" class="form-control form-control-highlight" rows="3">{{ pedido.notas_cocina }}</textarea>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="estado" class="fw-bold">📊 Estado</label>
+                <select name="estado" id="estado" class="form-control form-control-highlight">
+                    {% for key, value in pedido.ESTADO_CHOICES %}
+                        <option value="{{ key }}" {% if key == pedido.estado %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="alert alert-danger bg-danger-subtle border-danger text-danger-emphasis mb-4">
+                🚫 **Atención:** La edición de **Platos y Cantidades** está bloqueada para pedidos que ya están en proceso de cocina. Solo puede modificar información logística (Nombre, Mesa, Notas, Estado).
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'detalle_pedido' pedido.id %}" class="btn btn-secondary me-2">❌ Cancelar</a>
+                <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
