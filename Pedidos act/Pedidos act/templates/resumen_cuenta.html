@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <title>Cuenta Mesa {{ mesa.numero }}</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body class="container mt-4">
+    <div class="alert alert-primary">
+        <h4>💰 Resumen de Cuenta - Mesa {{ mesa.numero }}</h4>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% for pedido in pedidos %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light">
+            <strong>Pedido #{{ pedido.id }}</strong> (Hecho por {{ pedido.mesero.username }})
+        </div>
+        <ul class="list-group list-group-flush">
+            {% for detalle in pedido.detalles.all %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ detalle.plato.nombre }} (x{{ detalle.cantidad }})</span>
+                    <span>${{ detalle.subtotal|floatformat:2 }}</span>
+                </li>
+            {% endfor %}
+            <li class="list-group-item d-flex justify-content-end bg-secondary text-white">
+                <strong>Subtotal Pedido: ${{ pedido.calcular_total_neto|floatformat:2 }}</strong>
+            </li>
+        </ul>
+    </div>
+    {% endfor %}
+
+    <div class="card shadow border-dark mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Resumen Total</h5>
+            <table class="table table-sm">
+                <tbody>
+                    <tr>
+                        <td>Subtotal General:</td>
+                        <td class="text-end">${{ total_neto|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Descuento Aplicado ({{ descuento_porcentaje|floatformat:2 }}%):</td>
+                        <td class="text-end text-danger">-${{ descuento_monto|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="table-dark">
+                        <td><strong>TOTAL A PAGAR:</strong></td>
+                        <td class="text-end"><strong>${{ total_final|floatformat:2 }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h6>Aplicar Descuento</h6>
+            <form method="POST" class="input-group" action="{% url 'resumen_cuenta' mesa.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="aplicar_descuento" value="true">
+                <input type="number" step="0.01" min="0" max="100" name="descuento_porcentaje" class="form-control" placeholder="%" value="{{ descuento_porcentaje|floatformat:2 }}" required>
+                <button type="submit" class="btn btn-outline-danger">Aplicar %</button>
+            </form>
+        </div>
+
+        <div class="col-md-6">
+            <h6>Dividir Cuenta (Criterio #26)</h6>
+            <form method="POST" class="input-group" action="{% url 'resumen_cuenta' mesa.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="dividir_cuenta" value="true">
+                <input type="number" min="1" name="num_personas" class="form-control" placeholder="N° Personas" value="{{ division_personas }}" required>
+                <button type="submit" class="btn btn-outline-primary">Dividir</button>
+            </form>
+            
+            {% if division_personas > 1 %}
+                <div class="alert alert-info mt-2">
+                    Monto por persona ({{ division_personas }}): <strong>${{ monto_por_persona|floatformat:2 }}</strong>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-grid gap-2">
+        <button class="btn btn-success btn-lg disabled">
+            Generar Boleta/Factura (Integración con Pagos)
+        </button>
+    </div>
+    <div class="text-center mt-2">
+        <button class="btn btn-secondary disabled">Generar PDF de Resumen</button>
+    </div>
+    
+    <div class="text-center mt-4">
+        <a href="{% url 'home' %}" class="btn btn-link">⬅️ Volver al Inicio</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos de Mesa {{ mesa.numero }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="container mt-4">
+
+    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm mb-3">⬅️ Volver a Pedidos</a>
+
+    <h2 class="mb-4">Pedidos Activos de la Mesa {{ mesa.numero }}</h2>
+    
+    {% if pedidos %}
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Platos</th>
+                    <th>Estado</th>
+                    <th>Tiempo Transcurrido</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pedidos %}
+                <tr>
+                    <td>{{ p.id }}</td>
+                    <td>
+                        <ul class="list-unstyled mb-0 small">
+                            {% for det in p.detalles.all %}
+                                <li>{{ det.cantidad }}x {{ det.plato.nombre }}</li>
+                            {% empty %}
+                                <li>(Sin detalles de platos)</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    <td>
+                        <span class="badge 
+                            {% if p.estado == 'en_elaboracion' %}bg-secondary
+                            {% elif p.estado == 'enviado_cocina' %}bg-info
+                            {% elif p.estado == 'listo' %}bg-success
+                            {% elif p.estado == 'pendiente' %}bg-warning
+                            {% else %}bg-dark{% endif %}
+                        ">
+                            {{ p.get_estado_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if now %}
+                            {{ now|timesince:p.fecha_creacion }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'detalle_pedido' p.id %}" class="btn btn-info btn-sm">Ver Detalle</a>
+                        {% if p.estado == 'listo' %}
+                             <form method="POST" action="{% url 'marcar_entregado' p.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-warning btn-sm">✅ Entregado</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-info">
+            Esta mesa no tiene pedidos activos (pendientes, en cocina o listos). 
+        </div>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Pedidos</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <style>
+        .badge-m1 {
+            font-size: 0.7rem;
+            margin-left: 5px;
+        }
+        .plato-item {
+            transition: background-color 0.2s;
+        }
+        .plato-item:hover {
+            background-color: #f8f9fa;
+        }
+        .alert-api-warning {
+            border-left: 4px solid #ffc107;
+        }
+        .list-group-item {
+            transition: transform 0.2s;
+        }
+        .list-group-item:hover {
+            transform: translateX(5px);
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <h1 class="mb-4">📋 Sistema de Pedidos</h1>
+
+    <button type="button" class="btn btn-success mb-3" data-toggle="modal" data-target="#crearPedidoModal">
+        ➕ Nuevo Pedido
+    </button>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="close" data-bs-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if pedidos %}
+        <div class="list-group">
+            {% for p in pedidos %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-1">Pedido #{{ p.id }} - {{ p.nombre }}</h5>
+                            <div class="mb-2">
+                                🪑 Mesa: <strong>{{ p.mesa.numero }}</strong><br>
+                                📊 Estado: 
+                                <span class="badge 
+                                    {% if p.estado == 'pendiente' %}badge-warning
+                                    {% elif p.estado == 'validando_stock' %}badge-info
+                                    {% elif p.estado == 'en_elaboracion' %}badge-secondary
+                                    {% elif p.estado == 'enviado_cocina' %}badge-primary
+                                    {% elif p.estado == 'listo' %}badge-success
+                                    {% elif p.estado == 'entregado' %}badge-dark
+                                    {% elif p.estado == 'cancelado' %}badge-danger
+                                    {% else %}badge-secondary{% endif %}">
+                                    {{ p.get_estado_display }}
+                                </span><br>
+                                👨‍🍳 Mesero: {{ p.mesero.username }}<br>
+                                ⏰ {{ p.fecha_creacion|date:"d/m/Y H:i" }}
+                                
+                                <!-- ✅ Indicadores de API -->
+                                <div class="mt-2">
+                                    {% if p.stock_validado %}
+                                        <span class="badge badge-success badge-sm">✅ Stock Validado</span>
+                                    {% endif %}
+                                    {% if p.stock_consumido %}
+                                        <span class="badge badge-success badge-sm">🔥 Stock Consumido</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="btn-group-vertical btn-group-sm">
+                            <a href="{% url 'detalle_pedido' p.id %}" class="btn btn-info btn-sm">👁️ Ver</a>
+                            {% if p.estado != 'entregado' and p.estado != 'cancelado' %}
+                                <a href="{% url 'editar_pedido' p.id %}" class="btn btn-warning btn-sm">✏️ Editar</a>
+                            {% endif %}
+                            {% if p.estado == 'pendiente' or p.estado == 'cancelado' %}
+                                <a href="{% url 'eliminar_pedido' p.id %}" class="btn btn-danger btn-sm">🗑️ Eliminar</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted">⚠️ No hay pedidos registrados. Haz clic en "Nuevo Pedido" para crear el primero.</p>
+    {% endif %}
+</div>
+
+<!-- ✅ MODAL ACTUALIZADO CON DETECCIÓN DE IDs M1 -->
+<div class="modal fade" id="crearPedidoModal" tabindex="-1" role="dialog" aria-labelledby="crearPedidoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearPedidoLabel">➕ Crear Nuevo Pedido</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'crear_pedido' %}" id="formCrearPedido">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label>👤 Nombre del Cliente *</label>
+                        <input type="text" name="nombre" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>🪑 Seleccionar Mesa *</label>
+                        <select name="mesa" class="form-control" required>
+                            <option value="">-- Seleccione una mesa --</option>
+                            {% for m in Mesas %}
+                                <option value="{{ m.id }}">
+                                    Mesa {{ m.numero }} - {{ m.ubicacion }}
+                                    {% if m.ocupada %}(Ocupada){% else %}(Libre){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>👨‍🍳 Seleccionar Mesero *</label>
+                        <select name="mesero" class="form-control" required>
+                            <option value="">-- Seleccione un mesero --</option>
+                            {% for m in Meseros %}
+                                <option value="{{ m.id }}">{{ m.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div> 
+                    
+                    <div class="form-group">
+                        <label>📄 Notas para Cocina (Opcional)</label>
+                        <textarea name="notas_cocina" class="form-control" rows="2" placeholder="Ej: Sin cebolla, con poco hielo, etc."></textarea>
+                    </div>
+                    
+                    <!-- ✅ SECCIÓN DE PLATOS CON DETECCIÓN DE IDs M1 -->
+                    <div class="form-group border p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <label class="h6 mb-0">🍽️ Detalles del Pedido:</label>
+                            <span class="badge badge-info" id="platosSeleccionados">0 platos seleccionados</span>
+                        </div>
+                        
+                        {% if platos %}
+                            <!-- ✅ ALERTA SI HAY PLATOS SIN ID M1 -->
+                            {% with platos_sin_id=platos|length %}
+                                {% if platos_sin_id > 0 %}
+                                    <div class="alert alert-warning alert-sm alert-api-warning mb-3">
+                                        <strong>⚠️ Atención:</strong> Algunos platos no tienen ID de M1 asignado.
+                                        Para usar la integración con el módulo de Menú, asigna los IDs en el Admin.
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                            
+                            <div class="list-group mb-2" style="max-height: 300px; overflow-y: auto;">
+                                {% for plato in platos %}
+                                    <div class="list-group-item plato-item p-2">
+                                        <div class="row align-items-center">
+                                            <div class="col-7">
+                                                <div>
+                                                    <strong>{{ plato.nombre }}</strong>
+                                                    <span class="text-muted">${{ plato.precio }}</span>
+                                                </div>
+                                                <div>
+                                                    {% if plato.plato_id_m1 %}
+                                                        <span class="badge badge-success badge-m1">
+                                                            ✓ M1: {{ plato.plato_id_m1 }}
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge badge-warning badge-m1">
+                                                            ⚠ Sin ID M1
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="col-5 text-right">
+                                                <input type="hidden" name="platos[]" value="{{ plato.id }}">
+                                                <div class="input-group input-group-sm" style="width: 100px; float: right;">
+                                                    <div class="input-group-prepend">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(this, -1)">-</button>
+                                                    </div>
+                                                    <input type="number" 
+                                                           name="cantidades[]" 
+                                                           value="0" 
+                                                           min="0" 
+                                                           max="99"
+                                                           class="form-control form-control-sm text-center cantidad-input" 
+                                                           onchange="actualizarContador()">
+                                                    <div class="input-group-append">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(this, 1)">+</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <small class="form-text text-muted">
+                                💡 Selecciona la cantidad de cada plato. Solo se agregarán los platos con cantidad mayor a 0.
+                            </small>
+                        {% else %}
+                            <div class="alert alert-danger mb-0">
+                                ⚠️ <strong>ERROR CRÍTICO:</strong> No hay platos en el menú. 
+                                Debes agregar platos en el administrador de Django.
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <input type="hidden" name="estado" value="pendiente">
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardar">
+                            💾 Guardar Pedido
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // ✅ Función para cambiar cantidad con botones + y -
+    function cambiarCantidad(btn, delta) {
+        const input = btn.closest('.input-group').querySelector('.cantidad-input');
+        let valor = parseInt(input.value) || 0;
+        valor = Math.max(0, Math.min(99, valor + delta));
+        input.value = valor;
+        actualizarContador();
+    }
+
+    // ✅ Actualizar contador de platos seleccionados
+    function actualizarContador() {
+        const inputs = document.querySelectorAll('.cantidad-input');
+        let totalPlatos = 0;
+        let totalItems = 0;
+        
+        inputs.forEach(input => {
+            const cantidad = parseInt(input.value) || 0;
+            if (cantidad > 0) {
+                totalPlatos++;
+                totalItems += cantidad;
+            }
+        });
+        
+        const badge = document.getElementById('platosSeleccionados');
+        if (totalPlatos > 0) {
+            badge.textContent = `${totalPlatos} platos (${totalItems} items)`;
+            badge.className = 'badge badge-success';
+        } else {
+            badge.textContent = '0 platos seleccionados';
+            badge.className = 'badge badge-info';
+        }
+    }
+
+    // ✅ Validar formulario antes de enviar
+    document.getElementById('formCrearPedido').addEventListener('submit', function(e) {
+        const inputs = document.querySelectorAll('.cantidad-input');
+        let hayPlatos = false;
+        
+        inputs.forEach(input => {
+            if (parseInt(input.value) > 0) {
+                hayPlatos = true;
+            }
+        });
+        
+        if (!hayPlatos) {
+            e.preventDefault();
+            alert('⚠️ Debes seleccionar al menos un plato para crear el pedido.');
+            return false;
+        }
+        
+        return true;
+    });
+
+    // ✅ Inicializar contador al cargar
+    document.addEventListener('DOMContentLoaded', function() {
+        actualizarContador();
+        
+        // Añadir evento change a todos los inputs
+        document.querySelectorAll('.cantidad-input').forEach(input => {
+            input.addEventListener('change', actualizarContador);
+        });
+    });
+</script>
+</body>
+</html>
